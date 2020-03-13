@@ -1,0 +1,93 @@
+---
+# Title: pb-add-ansible-node.yml
+#
+# Author: Bitfinity-NL
+# File: pb-add-ansible-node.yml
+#
+# Description:
+#   Prepare Ubuntu to be controlled by Ansible.
+# 
+# Example:
+#   ansible-playbook pb-add-ansible-node.yml -u <username> --ask-pass --ask-become-pass
+#
+
+- hosts: lab-ubt01
+  become: yes
+
+  vars:
+    ansible_server: 'lab-ubt01'
+
+    local_admin   : 'sysdmin'
+    local_pass    : 'Welkom123'
+
+    ans_user : 'ansible'
+    ans_pass : 'password'
+
+  tasks:
+    - name: "Install dependencies"
+      apt:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - python-minimal
+
+    - name: "Create ansible group for user ansible"
+      group:
+        name: ansible
+        state: present
+
+    - name: "Create user ansible for application Ansible"
+      user:
+        name: ansible
+        comment: User for ansible
+        shell: /bin/bash
+        group: ansible
+        groups: sudo
+
+    - name: "Add ansible to the sudoers"
+      lineinfile:
+        path: /etc/sudoers.d/ansible
+        line: "ansible ALL=NOPASSWD: ALL"
+        owner: root
+        group: root
+        mode: 0440
+
+    - name: "Generate temporary password for user Ansible"
+      command: "mkpasswd --method=sha-512 {{ ans_pass }}"
+      register: encrypted_password
+      delegate_to: 127.0.0.1
+
+    - name: "Set temporary password for user Ansible"
+      user:
+        name: "{{ ans_user }}"
+        comment: local administrative account
+        password: "{{ encrypted_password.stdout }}"
+        update_password: always
+
+    - name: "Transfer public key to host"
+      command: "sshpass -p {{ ans_pass }} ssh-copy-id -o StrictHostKeyChecking=no ansible@{{ ansible_hostname }}"
+      remote_user: ansible
+      become_user: ansible
+      become_method: su
+      delegate_to: 127.0.0.1
+
+    - name: "Remove password from user Ansible"
+      user:
+        name: "{{ ans_user }}"
+        comment: local administrative account
+        password: ""
+        update_password: always
+
+    - name: "Configure firewall (UFW)"
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: "Enable firewall (UFW)"
+      ufw:
+        state: enabled
+        policy: allow
+
+
+
