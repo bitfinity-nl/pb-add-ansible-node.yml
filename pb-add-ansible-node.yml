@@ -11,17 +11,28 @@
 #   ansible-playbook pb-add-ansible-node.yml -u <username> --ask-pass --ask-become-pass
 #
 
-- hosts: lab-ubt01
+- hosts: localhost
+  gather_facts: no
+  vars_prompt:
+  - name: target_host
+    prompt: please enter the target host IP
+    private: no
+  tasks:
+    - add_host:
+        name: "{{ target_host }}"
+        groups: dynamically_created_hosts
+
+- hosts: dynamically_created_hosts
   become: yes
 
   vars:
-    ansible_server: 'lab-ubt01'
+    ansible_server: '{{ def_ans_srv }}'
 
-    local_admin   : 'sysdmin'
-    local_pass    : 'Welkom123'
+    local_admin   : '{{ def_ubt_admin }}'
+    local_pass    : '{{ def_ubt_pass }}'
 
     ans_user : 'ansible'
-    ans_pass : 'password'
+    ans_pass : 'TemporaryPassword'
 
   tasks:
     - name: "Install dependencies"
